@@ -1,8 +1,10 @@
 # Galactus DB drivers
 
 Seven native **database drivers**, with a shared API and zero third-party runtime
-packages. This is the local, experimental **0.1.0** implementation; packages have
-not been published. Each driver speaks the existing Galactus **Bolt 4.4** protocol
+packages. Version **0.1.0** is early access. All seven source repositories are
+public under [galactusdb](https://github.com/galactusdb), with `main` as the default
+branch. Registry packages have not been published; install from source using the
+language Quickstart and pin a reviewed commit. Each driver speaks **Bolt 4.4**
 directly. Each uses its host language directly and needs neither a helper runtime nor
 the server source at runtime.
 
@@ -18,6 +20,9 @@ bundle containing drivers, administration tools, examples, and integrations.
 | Node / TypeScript | [galactus-db-node-driver](https://github.com/galactusdb/galactus-db-node-driver) | `galactus-db-node-driver` | 0 |
 | C++ | [galactus-db-cpp-driver](https://github.com/galactusdb/galactus-db-cpp-driver) | `galactus`; CMake `Galactus::Driver` | 0 |
 | Python | [galactus-db-python-driver](https://github.com/galactusdb/galactus-db-python-driver) | `galactus` | 0 |
+
+See the [driver catalogue](https://galactusdb.com/product/drivers) for repository
+links and runtime requirements.
 
 ## Shared developer experience
 

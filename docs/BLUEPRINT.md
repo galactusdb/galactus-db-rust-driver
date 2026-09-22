@@ -16,7 +16,11 @@ parameters. Reject unsupported URI schemes, URI query options, and routing URIs.
 Autocommit: `RUN(query, params, {db})`, consume SUCCESS fields, then `PULL {n:-1}`
 until terminal SUCCESS. Honour `has_more` if supplied. An explicit transaction
 sends `BEGIN {db,mode}`; subsequent RUN extras are empty; COMMIT/ROLLBACK have
-zero fields. Graph IDs are local database identities, not application keys.
+zero fields. An empty or omitted database setting omits `db` from RUN/BEGIN
+metadata, letting the server select its configured default. Go and Rust accept
+an explicit empty string for this setting. A nonempty database name is sent
+unchanged; the driver does not create the database.
+Graph IDs are local database identities, not application keys.
 
 Only one operation may use a connection at a time. Do not pipeline requests.
 Discard failed connections rather than exposing a half-consumed stream. This
