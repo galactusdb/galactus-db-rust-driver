@@ -103,5 +103,5 @@ Keep this baseline stable while adding bounded connection pools, sessions with
 bookmarks, fetch-size cursors, cancellation, async variants, optional Rust/C++
 TLS providers, and optional application-object mapping. Add these behind
 explicit features/dependencies, with shared behaviour tests. Do not advertise
-Neo4j routing, full driver compatibility, or production readiness based solely
+cluster routing, full driver compatibility, or production readiness based solely
 on speaking Bolt 4.4.

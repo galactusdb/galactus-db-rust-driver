@@ -1,9 +1,5 @@
-//! PackStream â€” Neo4j's binary serialization format, used by Bolt.
-//!
-//! This is a faithful, std-only implementation of the subset Bolt needs: the
-//! primitive types plus lists, maps and *structures* (a tagged tuple, used for
-//! every Bolt message and for graph types like Node). Reference:
-//! <https://neo4j.com/docs/bolt/current/packstream/>.
+//! PackStream value encoding for the Galactus DB Bolt 4.4 protocol.
+//! Standard-library-only codec for primitive values, containers and structures.
 //!
 //! Marker bytes (the ones we emit/parse):
 //! ```text

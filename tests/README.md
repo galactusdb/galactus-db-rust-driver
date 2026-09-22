@@ -1,8 +1,8 @@
 # galactus-db-rust-driver tests
 
-[Galactus DB website](https://galactusdb.com) · [Driver How To](../README.md)
+[Galactus DB website](https://galactusdb.com) · [Driver Quickstart](../README.md)
 
-## How To
+## Quickstart
 
 Run these commands from the repository root:
 
@@ -33,7 +33,7 @@ $env:GDB_TEST_URI = 'bolt://127.0.0.1:7687'
 $env:GDB_TEST_PASSWORD = 'your-disposable-database-password'
 ```
 
-Tests use username `gdb`, database `neo4j`, create test-labelled nodes and exercise
+Tests use username `gdb`, the server's default database, create test-labelled nodes and exercise
 commit/rollback, errors and rejected authentication. Do not point them at valuable
 data. Reset the disposable database between runs because commit tests leave nodes.
 All seven drivers were validated together against a fresh local Galactus server;

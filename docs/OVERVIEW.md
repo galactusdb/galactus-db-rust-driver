@@ -3,8 +3,8 @@
 Seven native **database drivers**, with a shared API and zero third-party runtime
 packages. This is the local, experimental **0.1.0** implementation; packages have
 not been published. Each driver speaks the existing Galactus **Bolt 4.4** protocol
-directly. None wraps a Neo4j driver, launches another runtime, or needs the server
-source at runtime.
+directly. Each uses its host language directly and needs neither a helper runtime nor
+the server source at runtime.
 
 Use **driver** for package names and public APIs. Use **SDK** for a future wider
 bundle containing drivers, administration tools, examples, and integrations.
@@ -93,12 +93,8 @@ empties, holes, nested collections, and antimeridian geography.
 Platform validation so far is Windows. TLS interoperability, Linux/macOS builds,
 pooling under load, cancellation and production hardening remain release work.
 
-## Design references
+## Further reading
 
-The API follows the familiar parameterised-query, records, summary, and explicit
-transaction pattern described in the [Neo4j Python API](https://neo4j.com/docs/api/python-driver/current/api.html).
-The wire implementation follows [PackStream](https://neo4j.com/docs/bolt/current/packstream/)
-and the version-specific [Bolt structure semantics](https://neo4j.com/docs/bolt/current/bolt/structure-semantics/).
-Unlike the custom integer type documented in the [Neo4j JavaScript mapping](https://neo4j.com/docs/javascript-manual/current/data-types/),
-this Node driver uses built-in `bigint`. Galactus source and its Bolt 4.4 tests
-are authoritative where newer Bolt versions differ.
+See the [driver blueprint](BLUEPRINT.md) for the API and type mapping contract,
+and [spatial mapping](SPATIAL.md) for geometry and geography interchange.
+Visit [galactusdb.com](https://galactusdb.com) for the database and product guides.

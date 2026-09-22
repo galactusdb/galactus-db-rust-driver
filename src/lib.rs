@@ -155,7 +155,15 @@ impl Driver {
             .as_mut()
             .ok_or_else(|| protocol("driver is closed"))
     }
-    fn send(&mut self, tag: u8, fields: Vec<Value>) -> Result<()> {
+    fn send(&mut self, tag: u8, mut fields: Vec<Value>) -> Result<()> {
+        if tag == 0x10 || tag == 0x11 {
+            let index = if tag == 0x10 { 2 } else { 0 };
+            if let Some(Value::Map(extra)) = fields.get_mut(index) {
+                if extra.get("db") == Some(&Value::String(String::new())) {
+                    extra.remove("db");
+                }
+            }
+        }
         let bytes = encode(&Value::Structure(tag, fields))?;
         let mut frame = Vec::new();
         for chunk in bytes.chunks(65535) {

@@ -37,7 +37,7 @@ fn live() {
         &uri,
         "gdb",
         &password,
-        "neo4j",
+        "",
         std::time::Duration::from_secs(30),
     )
     .unwrap();
@@ -123,7 +123,7 @@ fn live() {
             &uri,
             "gdb",
             "wrong-password",
-            "neo4j",
+            "",
             std::time::Duration::from_secs(30)
         ),
         Err(Error::Database { .. })
