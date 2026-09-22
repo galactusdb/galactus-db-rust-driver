@@ -1,0 +1,15 @@
+**/target/
+**/bin/
+**/obj/
+**/__pycache__/
+**/*.egg-info/
+.build/
+**/build/
+**/dist/
+.env
+.env.*
+node_modules/
+*.user
+*.suo
+.vs/
+.DS_Store

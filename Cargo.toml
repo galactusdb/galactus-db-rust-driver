@@ -1,0 +1,16 @@
+[package]
+name = "galactus-db-rust-driver"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+description = "Standard-library-only Bolt 4.4 driver for Galactus DB"
+
+homepage = "https://galactusdb.com"
+repository = "https://github.com/galactusdb/galactus-db-rust-driver"
+readme = "README.md"
+
+[lib]
+name = "galactus"
+path = "src/lib.rs"
+
+[dependencies]
