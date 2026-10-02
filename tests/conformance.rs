@@ -113,6 +113,36 @@ fn live() {
     } else {
         panic!("expected Node")
     }
+    let (limited, truncated) = d
+        .execute_query_limited("UNWIND range(1, 5) AS n RETURN n", Map::new(), 2)
+        .unwrap();
+    assert_eq!(limited.records.len(), 2);
+    assert!(truncated);
+    let (whole, truncated) = d
+        .execute_query_limited("UNWIND range(1, 2) AS n RETURN n", Map::new(), 5)
+        .unwrap();
+    assert_eq!(whole.records.len(), 2);
+    assert!(!truncated);
+    // The discarded remainder leaves the connection ready for the next query.
+    assert_eq!(
+        d.execute_query("RETURN 1 AS one", Map::new())
+            .unwrap()
+            .records[0]["one"],
+        1i64.into()
+    );
+    let mut timed = Driver::connect(
+        &uri,
+        "gdb",
+        &password,
+        "",
+        std::time::Duration::from_secs(30),
+    )
+    .unwrap();
+    timed.set_transaction_timeout(Some(std::time::Duration::from_millis(1)));
+    assert!(matches!(
+        timed.execute_query("UNWIND range(1, 20000000) AS x RETURN count(x) AS c", Map::new()),
+        Err(Error::Database { code, .. }) if code.ends_with("Transaction.TimedOut")
+    ));
     assert!(matches!(
         d.execute_query("INVALID QUERY", Map::new()),
         Err(Error::Database { .. })

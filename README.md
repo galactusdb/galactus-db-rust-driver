@@ -127,6 +127,19 @@ including graph properties and spatial envelopes. Use Cypher `LIMIT` or
 application-level pagination for large result sets: this release is eager,
 not a lazy streaming cursor.
 
+To cap a result you don't control, use `execute_query_limited`. It pulls at
+most that many records and discards the rest on the server. The flag it returns
+is `true` when records were discarded:
+
+```rust
+let (result, truncated) = driver.execute_query_limited("MATCH (n) RETURN n", Map::new(), 100)?;
+```
+
+`set_transaction_timeout(Some(duration))` asks the server to stop each later
+autocommit query, or transaction from its `BEGIN`, once the time runs out. The
+server rolls back a stopped transaction. The socket timeout passed to `connect`
+still applies, so keep it longer than the transaction timeout.
+
 ## Transactions
 
 Queries outside an explicit transaction autocommit. Group related writes with

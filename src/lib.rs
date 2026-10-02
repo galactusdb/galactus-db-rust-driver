@@ -70,6 +70,7 @@ pub struct Driver {
     stream: Option<TcpStream>,
     database: String,
     transaction: bool,
+    tx_timeout: Option<Timeout>,
 }
 fn protocol(s: &str) -> Error {
     Error::Protocol(s.into())
@@ -137,6 +138,7 @@ impl Driver {
             stream: Some(s),
             database: database.into(),
             transaction: false,
+            tx_timeout: None,
         };
         d.send(
             1,
@@ -149,6 +151,18 @@ impl Driver {
         )?;
         d.success()?;
         Ok(d)
+    }
+    /// Ask the server to stop each later autocommit query, or transaction from
+    /// its `BEGIN`, after `timeout` (Bolt `tx_timeout`). `None` leaves only the
+    /// server's own limit. The socket timeout given to `connect` still applies.
+    pub fn set_transaction_timeout(&mut self, timeout: Option<Timeout>) {
+        self.tx_timeout = timeout;
+    }
+    fn timeout_entry(&self) -> Option<(String, Value)> {
+        self.tx_timeout.map(|t| {
+            let ms = i64::try_from(t.as_millis()).unwrap_or(i64::MAX).max(1);
+            ("tx_timeout".to_string(), Value::Int(ms))
+        })
     }
     fn stream(&mut self) -> Result<&mut TcpStream> {
         self.stream
@@ -230,20 +244,42 @@ impl Driver {
         map(value)
     }
     pub fn execute_query(&mut self, query: &str, params: Map) -> Result<QueryResult> {
-        let result = self.query_inner(query, params);
+        let result = self.query_inner(query, params, None);
+        if result.is_err() {
+            self.close()
+        }
+        result.map(|(result, _)| result)
+    }
+    /// Like [`execute_query`](Self::execute_query), but pulls at most
+    /// `max_records` records and discards the rest on the server. The flag is
+    /// `true` when records were discarded.
+    pub fn execute_query_limited(
+        &mut self,
+        query: &str,
+        params: Map,
+        max_records: usize,
+    ) -> Result<(QueryResult, bool)> {
+        let result = self.query_inner(query, params, Some(max_records));
         if result.is_err() {
             self.close()
         }
         result
     }
-    fn query_inner(&mut self, query: &str, params: Map) -> Result<QueryResult> {
+    fn query_inner(
+        &mut self,
+        query: &str,
+        params: Map,
+        limit: Option<usize>,
+    ) -> Result<(QueryResult, bool)> {
         for v in params.values() {
             validate_parameter_wire(&v.to_wire(0)?)?;
         }
         let extra = if self.transaction {
             Map::new()
         } else {
-            Map::from([("db".into(), self.database.clone().into())])
+            let mut extra = Map::from([("db".into(), self.database.clone().into())]);
+            extra.extend(self.timeout_entry());
+            extra
         };
         self.send(
             0x10,
@@ -262,27 +298,36 @@ impl Driver {
             return Err(protocol("missing fields"));
         };
         let mut records = Vec::new();
-        self.send(
-            0x3f,
-            vec![Value::Map(Map::from([("n".into(), (-1i64).into())]))],
-        )?;
+        let n = limit.map_or(-1, |l| i64::try_from(l).unwrap_or(i64::MAX));
+        self.send(0x3f, vec![Value::Map(Map::from([("n".into(), n.into())]))])?;
+        let mut truncated = false;
         loop {
             let (tag, value) = self.receive()?;
             if tag == 0x70 {
                 let summary = map(value)?;
                 if summary.get("has_more") == Some(&Value::Bool(true)) {
+                    // Over the limit: DISCARD the rest so the summary still arrives.
+                    let next = if limit.is_some() {
+                        truncated = true;
+                        0x2f
+                    } else {
+                        0x3f
+                    };
                     self.send(
-                        0x3f,
+                        next,
                         vec![Value::Map(Map::from([("n".into(), (-1i64).into())]))],
                     )?;
                     continue;
                 }
                 meta.extend(summary);
-                return Ok(QueryResult {
-                    keys,
-                    records,
-                    summary: meta,
-                });
+                return Ok((
+                    QueryResult {
+                        keys,
+                        records,
+                        summary: meta,
+                    },
+                    truncated,
+                ));
             }
             if let Value::List(values) = value {
                 if values.len() != keys.len() {
@@ -299,13 +344,12 @@ impl Driver {
             return Err(protocol("transaction already open"));
         }
         let r = (|| {
-            self.send(
-                0x11,
-                vec![Value::Map(Map::from([
-                    ("db".into(), self.database.clone().into()),
-                    ("mode".into(), if read_only { "r" } else { "w" }.into()),
-                ]))],
-            )?;
+            let mut extra = Map::from([
+                ("db".into(), self.database.clone().into()),
+                ("mode".into(), if read_only { "r" } else { "w" }.into()),
+            ]);
+            extra.extend(self.timeout_entry());
+            self.send(0x11, vec![Value::Map(extra)])?;
             self.success()?;
             self.transaction = true;
             Ok(())
