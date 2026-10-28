@@ -1,4 +1,4 @@
-//! PackStream value encoding for the Galactus DB Bolt 4.4 protocol.
+//! PackStream value encoding for the Galactus DB Bolt protocol (4.4 and 5.x).
 //! Standard-library-only codec for primitive values, containers and structures.
 //!
 //! Marker bytes (the ones we emit/parse):
