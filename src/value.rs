@@ -1,4 +1,4 @@
-use crate::{wire::Ps, Error, Map, Result};
+use crate::{wire::Ps, Error, Map, Protocol, Result};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Null,
@@ -30,6 +30,9 @@ pub struct Node {
     pub id: i64,
     pub labels: Vec<Value>,
     pub properties: Map,
+    /// Bolt 5 element id. On Bolt 4.4 the driver fills it with the decimal
+    /// text of `id`, which is what Galactus's `elementId()` returns.
+    pub element_id: String,
 }
 impl From<Node> for Value {
     fn from(v: Node) -> Self {
@@ -43,6 +46,9 @@ pub struct Relationship {
     pub end_id: i64,
     pub kind: String,
     pub properties: Map,
+    pub element_id: String,
+    pub start_element_id: String,
+    pub end_element_id: String,
 }
 impl From<Relationship> for Value {
     fn from(v: Relationship) -> Self {
@@ -54,6 +60,7 @@ pub struct UnboundRelationship {
     pub id: i64,
     pub kind: String,
     pub properties: Map,
+    pub element_id: String,
 }
 impl From<UnboundRelationship> for Value {
     fn from(v: UnboundRelationship) -> Self {
@@ -120,11 +127,46 @@ impl From<DateTime> for Value {
         Self::DateTime(v)
     }
 }
+/// Which epoch a [`ZonedDateTime`]'s `seconds` count from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ZoneBasis {
+    /// Local wall-clock epoch seconds in the zone (Bolt tag `f`).
+    #[default]
+    Local,
+    /// UTC epoch seconds (Bolt tag `i`).
+    Utc,
+}
+/// A named-zone datetime. Converting between local and UTC seconds needs a
+/// time zone database, so the value keeps the basis it was given and the
+/// encoder writes that basis unchanged (`f` for local, `i` for UTC) on every
+/// protocol version. Two values are equal only when basis, seconds,
+/// nanoseconds and zone all match.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ZonedDateTime {
     pub seconds: i64,
     pub nanoseconds: i64,
     pub zone_id: String,
+    pub basis: ZoneBasis,
+}
+impl ZonedDateTime {
+    /// `seconds` are local epoch seconds in `zone_id`.
+    pub fn local(seconds: i64, nanoseconds: i64, zone_id: impl Into<String>) -> Self {
+        Self {
+            seconds,
+            nanoseconds,
+            zone_id: zone_id.into(),
+            basis: ZoneBasis::Local,
+        }
+    }
+    /// `seconds` are UTC epoch seconds.
+    pub fn utc(seconds: i64, nanoseconds: i64, zone_id: impl Into<String>) -> Self {
+        Self {
+            seconds,
+            nanoseconds,
+            zone_id: zone_id.into(),
+            basis: ZoneBasis::Utc,
+        }
+    }
 }
 impl From<ZonedDateTime> for Value {
     fn from(v: ZonedDateTime) -> Self {
@@ -254,7 +296,7 @@ impl Value {
             None
         }
     }
-    pub(crate) fn to_wire(&self, depth: usize) -> Result<Ps> {
+    pub(crate) fn to_wire(&self, depth: usize, protocol: Protocol) -> Result<Ps> {
         if depth >= 64 {
             return Err(Error::Protocol("nesting exceeds 64 levels".into()));
         }
@@ -267,12 +309,12 @@ impl Value {
             Self::Bytes(v) => Ps::Bytes(v.clone()),
             Self::List(v) => Ps::List(
                 v.iter()
-                    .map(|x| x.to_wire(depth + 1))
+                    .map(|x| x.to_wire(depth + 1, protocol))
                     .collect::<Result<_>>()?,
             ),
             Self::Map(v) => Ps::Map(
                 v.iter()
-                    .map(|(k, x)| Ok((k.clone(), x.to_wire(depth + 1)?)))
+                    .map(|(k, x)| Ok((k.clone(), x.to_wire(depth + 1, protocol)?)))
                     .collect::<Result<_>>()?,
             ),
             Self::Structure(tag, f) => {
@@ -282,40 +324,48 @@ impl Value {
                 Ps::Struct(
                     *tag,
                     f.iter()
-                        .map(|x| x.to_wire(depth + 1))
+                        .map(|x| x.to_wire(depth + 1, protocol))
                         .collect::<Result<_>>()?,
                 )
             }
-            Self::Spatial(s) => Value::Map(s.to_map()).to_wire(depth + 1)?,
-            Self::Node(v) => Value::Structure(
-                78,
-                vec![
-                    Value::from(v.id.clone()),
+            Self::Spatial(s) => Value::Map(s.to_map()).to_wire(depth + 1, protocol)?,
+            Self::Node(v) => {
+                let mut f = vec![
+                    Value::from(v.id),
                     Value::List(v.labels.clone()),
                     Value::Map(v.properties.clone()),
-                ],
-            )
-            .to_wire(depth + 1)?,
-            Self::Relationship(v) => Value::Structure(
-                82,
-                vec![
-                    Value::from(v.id.clone()),
-                    Value::from(v.start_id.clone()),
-                    Value::from(v.end_id.clone()),
+                ];
+                if protocol == Protocol::Bolt5 {
+                    f.push(v.element_id.clone().into());
+                }
+                Value::Structure(78, f).to_wire(depth + 1, protocol)?
+            }
+            Self::Relationship(v) => {
+                let mut f = vec![
+                    Value::from(v.id),
+                    Value::from(v.start_id),
+                    Value::from(v.end_id),
                     Value::from(v.kind.clone()),
                     Value::Map(v.properties.clone()),
-                ],
-            )
-            .to_wire(depth + 1)?,
-            Self::UnboundRelationship(v) => Value::Structure(
-                114,
-                vec![
-                    Value::from(v.id.clone()),
+                ];
+                if protocol == Protocol::Bolt5 {
+                    f.push(v.element_id.clone().into());
+                    f.push(v.start_element_id.clone().into());
+                    f.push(v.end_element_id.clone().into());
+                }
+                Value::Structure(82, f).to_wire(depth + 1, protocol)?
+            }
+            Self::UnboundRelationship(v) => {
+                let mut f = vec![
+                    Value::from(v.id),
                     Value::from(v.kind.clone()),
                     Value::Map(v.properties.clone()),
-                ],
-            )
-            .to_wire(depth + 1)?,
+                ];
+                if protocol == Protocol::Bolt5 {
+                    f.push(v.element_id.clone().into());
+                }
+                Value::Structure(114, f).to_wire(depth + 1, protocol)?
+            }
             Self::Path(v) => Value::Structure(
                 80,
                 vec![
@@ -324,75 +374,80 @@ impl Value {
                     Value::List(v.sequence.clone()),
                 ],
             )
-            .to_wire(depth + 1)?,
+            .to_wire(depth + 1, protocol)?,
             Self::Date(v) => {
-                Value::Structure(68, vec![Value::from(v.days.clone())]).to_wire(depth + 1)?
+                Value::Structure(68, vec![Value::from(v.days)]).to_wire(depth + 1, protocol)?
             }
-            Self::LocalTime(v) => Value::Structure(116, vec![Value::from(v.nanoseconds.clone())])
-                .to_wire(depth + 1)?,
+            Self::LocalTime(v) => Value::Structure(116, vec![Value::from(v.nanoseconds)])
+                .to_wire(depth + 1, protocol)?,
             Self::Time(v) => Value::Structure(
                 84,
-                vec![
-                    Value::from(v.nanoseconds.clone()),
-                    Value::from(v.offset_seconds.clone()),
-                ],
+                vec![Value::from(v.nanoseconds), Value::from(v.offset_seconds)],
             )
-            .to_wire(depth + 1)?,
+            .to_wire(depth + 1, protocol)?,
             Self::LocalDateTime(v) => Value::Structure(
                 100,
-                vec![
-                    Value::from(v.seconds.clone()),
-                    Value::from(v.nanoseconds.clone()),
-                ],
+                vec![Value::from(v.seconds), Value::from(v.nanoseconds)],
             )
-            .to_wire(depth + 1)?,
-            Self::DateTime(v) => Value::Structure(
-                70,
-                vec![
-                    Value::from(v.seconds.clone()),
-                    Value::from(v.nanoseconds.clone()),
-                    Value::from(v.offset_seconds.clone()),
-                ],
-            )
-            .to_wire(depth + 1)?,
+            .to_wire(depth + 1, protocol)?,
+            // `DateTime::seconds` are local epoch seconds (tag F). Bolt 5
+            // sends UTC seconds (tag I); the conversion is exact.
+            Self::DateTime(v) => {
+                let (tag, seconds) = if protocol == Protocol::Bolt5 {
+                    let utc = v.seconds.checked_sub(v.offset_seconds).ok_or_else(|| {
+                        Error::Protocol("datetime outside signed 64-bit range".into())
+                    })?;
+                    (0x49, utc)
+                } else {
+                    (0x46, v.seconds)
+                };
+                Value::Structure(
+                    tag,
+                    vec![
+                        Value::from(seconds),
+                        Value::from(v.nanoseconds),
+                        Value::from(v.offset_seconds),
+                    ],
+                )
+                .to_wire(depth + 1, protocol)?
+            }
             Self::ZonedDateTime(v) => Value::Structure(
-                102,
+                match v.basis {
+                    ZoneBasis::Local => 0x66,
+                    ZoneBasis::Utc => 0x69,
+                },
                 vec![
-                    Value::from(v.seconds.clone()),
-                    Value::from(v.nanoseconds.clone()),
+                    Value::from(v.seconds),
+                    Value::from(v.nanoseconds),
                     Value::from(v.zone_id.clone()),
                 ],
             )
-            .to_wire(depth + 1)?,
+            .to_wire(depth + 1, protocol)?,
             Self::Duration(v) => Value::Structure(
                 69,
                 vec![
-                    Value::from(v.months.clone()),
-                    Value::from(v.days.clone()),
-                    Value::from(v.seconds.clone()),
-                    Value::from(v.nanoseconds.clone()),
+                    Value::from(v.months),
+                    Value::from(v.days),
+                    Value::from(v.seconds),
+                    Value::from(v.nanoseconds),
                 ],
             )
-            .to_wire(depth + 1)?,
+            .to_wire(depth + 1, protocol)?,
             Self::Point2D(v) => Value::Structure(
                 88,
-                vec![
-                    Value::from(v.srid.clone()),
-                    Value::from(v.x.clone()),
-                    Value::from(v.y.clone()),
-                ],
+                vec![Value::from(v.srid), Value::from(v.x), Value::from(v.y)],
             )
-            .to_wire(depth + 1)?,
+            .to_wire(depth + 1, protocol)?,
             Self::Point3D(v) => Value::Structure(
                 89,
                 vec![
-                    Value::from(v.srid.clone()),
-                    Value::from(v.x.clone()),
-                    Value::from(v.y.clone()),
-                    Value::from(v.z.clone()),
+                    Value::from(v.srid),
+                    Value::from(v.x),
+                    Value::from(v.y),
+                    Value::from(v.z),
                 ],
             )
-            .to_wire(depth + 1)?,
+            .to_wire(depth + 1, protocol)?,
         })
     }
     pub(crate) fn from_wire(v: Ps) -> Result<Self> {
@@ -425,39 +480,56 @@ impl Value {
                     .map(Self::from_wire)
                     .collect::<Result<Vec<_>>>()?;
                 match tag {
+                    // Bolt 4.4 sends 3/5/3 fields; Bolt 5 appends element ids.
                     78 => {
-                        if values.len() != 3 {
+                        if values.len() != 3 && values.len() != 4 {
                             return Err(Error::Protocol("invalid structure field count".into()));
                         }
                         let mut it = values.into_iter();
+                        let id = <i64>::try_from(it.next().unwrap())?;
+                        let labels = <Vec<Value>>::try_from(it.next().unwrap())?;
+                        let properties = <Map>::try_from(it.next().unwrap())?;
                         Self::Node(Node {
-                            id: <i64>::try_from(it.next().unwrap())?,
-                            labels: <Vec<Value>>::try_from(it.next().unwrap())?,
-                            properties: <Map>::try_from(it.next().unwrap())?,
+                            id,
+                            labels,
+                            properties,
+                            element_id: element_id(it.next(), id)?,
                         })
                     }
                     82 => {
-                        if values.len() != 5 {
+                        if values.len() != 5 && values.len() != 8 {
                             return Err(Error::Protocol("invalid structure field count".into()));
                         }
                         let mut it = values.into_iter();
+                        let id = <i64>::try_from(it.next().unwrap())?;
+                        let start_id = <i64>::try_from(it.next().unwrap())?;
+                        let end_id = <i64>::try_from(it.next().unwrap())?;
+                        let kind = <String>::try_from(it.next().unwrap())?;
+                        let properties = <Map>::try_from(it.next().unwrap())?;
                         Self::Relationship(Relationship {
-                            id: <i64>::try_from(it.next().unwrap())?,
-                            start_id: <i64>::try_from(it.next().unwrap())?,
-                            end_id: <i64>::try_from(it.next().unwrap())?,
-                            kind: <String>::try_from(it.next().unwrap())?,
-                            properties: <Map>::try_from(it.next().unwrap())?,
+                            id,
+                            start_id,
+                            end_id,
+                            kind,
+                            properties,
+                            element_id: element_id(it.next(), id)?,
+                            start_element_id: element_id(it.next(), start_id)?,
+                            end_element_id: element_id(it.next(), end_id)?,
                         })
                     }
                     114 => {
-                        if values.len() != 3 {
+                        if values.len() != 3 && values.len() != 4 {
                             return Err(Error::Protocol("invalid structure field count".into()));
                         }
                         let mut it = values.into_iter();
+                        let id = <i64>::try_from(it.next().unwrap())?;
+                        let kind = <String>::try_from(it.next().unwrap())?;
+                        let properties = <Map>::try_from(it.next().unwrap())?;
                         Self::UnboundRelationship(UnboundRelationship {
-                            id: <i64>::try_from(it.next().unwrap())?,
-                            kind: <String>::try_from(it.next().unwrap())?,
-                            properties: <Map>::try_from(it.next().unwrap())?,
+                            id,
+                            kind,
+                            properties,
+                            element_id: element_id(it.next(), id)?,
                         })
                     }
                     80 => {
@@ -509,18 +581,30 @@ impl Value {
                             nanoseconds: <i64>::try_from(it.next().unwrap())?,
                         })
                     }
-                    70 => {
+                    // F (local seconds) and I (UTC seconds), on any version.
+                    0x46 | 0x49 => {
                         if values.len() != 3 {
                             return Err(Error::Protocol("invalid structure field count".into()));
                         }
                         let mut it = values.into_iter();
+                        let seconds = <i64>::try_from(it.next().unwrap())?;
+                        let nanoseconds = <i64>::try_from(it.next().unwrap())?;
+                        let offset_seconds = <i64>::try_from(it.next().unwrap())?;
+                        let seconds = if tag == 0x49 {
+                            seconds.checked_add(offset_seconds).ok_or_else(|| {
+                                Error::Protocol("datetime outside signed 64-bit range".into())
+                            })?
+                        } else {
+                            seconds
+                        };
                         Self::DateTime(DateTime {
-                            seconds: <i64>::try_from(it.next().unwrap())?,
-                            nanoseconds: <i64>::try_from(it.next().unwrap())?,
-                            offset_seconds: <i64>::try_from(it.next().unwrap())?,
+                            seconds,
+                            nanoseconds,
+                            offset_seconds,
                         })
                     }
-                    102 => {
+                    // f (local seconds) and i (UTC seconds); the basis is kept.
+                    0x66 | 0x69 => {
                         if values.len() != 3 {
                             return Err(Error::Protocol("invalid structure field count".into()));
                         }
@@ -529,6 +613,11 @@ impl Value {
                             seconds: <i64>::try_from(it.next().unwrap())?,
                             nanoseconds: <i64>::try_from(it.next().unwrap())?,
                             zone_id: <String>::try_from(it.next().unwrap())?,
+                            basis: if tag == 0x69 {
+                                ZoneBasis::Utc
+                            } else {
+                                ZoneBasis::Local
+                            },
                         })
                     }
                     69 => {
@@ -570,6 +659,13 @@ impl Value {
                 }
             }
         })
+    }
+}
+/// A Bolt 5 element id field, or the decimal id text when it is absent (4.4).
+fn element_id(field: Option<Value>, id: i64) -> Result<String> {
+    match field {
+        Some(v) => String::try_from(v),
+        None => Ok(id.to_string()),
     }
 }
 impl From<bool> for Value {

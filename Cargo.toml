@@ -1,9 +1,9 @@
 [package]
 name = "galactus-db-rust-driver"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.70"
-description = "Standard-library-only Bolt 4.4 driver for Galactus DB"
+description = "Bolt 5.4 driver for Galactus DB with a Bolt 4.4 fallback; standard library only by default, verified TLS behind the `tls` feature"
 
 homepage = "https://galactusdb.com"
 repository = "https://github.com/galactusdb/galactus-db-rust-driver"
@@ -13,4 +13,11 @@ readme = "README.md"
 name = "galactus"
 path = "src/lib.rs"
 
+[features]
+default = []
+# Verified bolt+s:// with rustls (ring provider) and the platform trust store.
+tls = ["dep:rustls", "dep:rustls-platform-verifier"]
+
 [dependencies]
+rustls = { version = "0.23.27", optional = true, default-features = false, features = ["ring", "std", "tls12"] }
+rustls-platform-verifier = { version = "0.7", optional = true }
