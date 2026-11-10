@@ -288,10 +288,10 @@ compare against a name rather than a string. Codes the server adds later still w
 | TransactionTerminated | `Galactus.ClientError.Transaction.Terminated` |
 | SnapshotTooOld | `Galactus.TransientError.Transaction.SnapshotTooOld` |
 | Forbidden | `Galactus.ClientError.Security.Forbidden` |
-| SyntaxError | `Neo.ClientError.Statement.SyntaxError` |
-| SemanticError | `Neo.ClientError.Statement.SemanticError` |
-| Unauthorized | `Neo.ClientError.Security.Unauthorized` |
-| DatabaseNotFound | `Neo.ClientError.Database.DatabaseNotFound` |
+| SyntaxError | `Galactus.ClientError.Statement.SyntaxError` |
+| SemanticError | `Galactus.ClientError.Statement.SemanticError` |
+| Unauthorized | `Galactus.ClientError.Security.Unauthorized` |
+| DatabaseNotFound | `Galactus.ClientError.Database.DatabaseNotFound` |
 
 Keep the constants inside a codes namespace (in Go, a `Code` prefix) so names such
 as `TypeError` do not clash with the language's own. A configuration error (for example a trusted

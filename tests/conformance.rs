@@ -109,7 +109,7 @@ fn error_code_constants() {
         codes::LICENSE_RESTRICTED,
         "Galactus.ClientError.License.Restricted"
     );
-    assert_eq!(codes::SYNTAX_ERROR, "Neo.ClientError.Statement.SyntaxError");
+    assert_eq!(codes::SYNTAX_ERROR, "Galactus.ClientError.Statement.SyntaxError");
 }
 
 fn connect(uri: &str, password: &str, ca: Option<&str>) -> Result<Driver> {
