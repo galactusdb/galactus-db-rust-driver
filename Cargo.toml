@@ -1,6 +1,6 @@
 [package]
 name = "galactus-db-rust-driver"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.70"
 description = "Bolt 5.4 driver for Galactus DB with a Bolt 4.4 fallback; standard library only by default, verified TLS behind the `tls` feature"

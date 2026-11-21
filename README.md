@@ -8,7 +8,7 @@ Bolt 4.4 when a server offers only that. The default build uses the Rust
 standard library alone, with **zero third-party dependencies**. Turn on the
 `tls` feature for verified `bolt+s://` connections.
 
-**Status: 0.2 / early access.** Source is available on `main`. Each driver owns
+**Status: 0.3 / early access.** Source is available on `main`. Each driver owns
 one connection and returns complete results. Install from source as shown
 below and read the [scope of this release](#scope-of-this-release) for how it
 fits your application.
@@ -402,7 +402,7 @@ TLS.
 This release provides direct connections over Bolt 5.4 or 4.4, basic
 authentication, verified TLS, parameterised queries, complete results with
 summaries, explicit transactions, recovery after database errors, error
-classification, native type mapping and full spatial interchange.
+classification, native type mapping, an object mapper and full spatial interchange.
 
 Each driver owns one connection. Connection pools, routing discovery, sessions
 that send bookmarks, managed retry callbacks, lazy cursors, cancellation and
