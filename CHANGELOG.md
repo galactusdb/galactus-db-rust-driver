@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 (21/11/2026)
+
+- **Object mapper.** `galactus::node!` and `galactus::relationship!` declare a type as a node or a relationship; the mapper converts
+  objects to and from the graph and runs create, save, find, find-all, delete, relate,
+  related and query, each as one statement. It adds no dependency. `docs/MAPPER.md` is the
+  contract every Galactus driver follows.
+- **Error-code constants.** The constants for a syntax error, a semantic error, a
+  failed sign-in and a missing database now hold the `Galactus.` codes the server
+  sends (Galactus DB 2.1.7 and later). Their names are unchanged.
+- The user agent is `galactus-db-rust-driver/0.3.0`.
+
 ## 0.2.0 (28/10/2026)
 
 ### Added

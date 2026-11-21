@@ -1,7 +1,7 @@
 # Galactus DB drivers
 
 Seven native **database drivers**, with a shared API and zero third-party runtime
-packages in their default builds. Version **0.2.0** is early access. All seven
+packages in their default builds. Version **0.3.0** is early access. All seven
 source repositories are public under [galactusdb](https://github.com/galactusdb),
 with `main` as the default branch. Registry packages have not been published;
 install from source using the language Quickstart and pin a reviewed commit. Each
@@ -62,16 +62,20 @@ conversion through GeoJSON. Bind a `Spatial` value directly, then use
 `spatial.fromMap($shape)` in Cypher to turn that envelope into a database shape.
 This explicit promotion is required by the existing server protocol.
 
-## Scope of 0.2
+## Scope of 0.3
 
 These are small **single-connection, eager-result drivers**. One connection is
 owned by each driver. Use a separate driver for each concurrent unit of work,
 especially transactions. Go, Java and C# serialize calls; Node rejects overlapping
 operations; Python and C++ must not be shared concurrently; Rust requires mutable
 access. There is no connection pool, routing discovery, automatic retry,
-managed transaction callback, session bookmark chaining, lazy cursor, ORM, or
+managed transaction callback, session bookmark chaining, lazy cursor, or
 async API outside Node yet. Session re-authentication, telemetry and routing
 messages are not sent.
+
+Each driver carries an optional object mapper: declare a type as a node or a
+relationship and it converts objects to and from the graph. [The mapper
+contract](MAPPER.md) is the same in every language.
 
 The handshake offers Bolt 5.4 down to 5.0, then 4.4. From 5.1 the drivers send
 `bolt_agent` in HELLO and authenticate with a separate LOGON. On 5.x, offset and

@@ -109,7 +109,7 @@ fn error_code_constants() {
         codes::LICENSE_RESTRICTED,
         "Galactus.ClientError.License.Restricted"
     );
-    assert_eq!(codes::SYNTAX_ERROR, "Neo.ClientError.Statement.SyntaxError");
+    assert_eq!(codes::SYNTAX_ERROR, "Galactus.ClientError.Statement.SyntaxError");
 }
 
 fn connect(uri: &str, password: &str, ca: Option<&str>) -> Result<Driver> {
@@ -291,7 +291,7 @@ fn live() {
     timed.set_transaction_timeout(Some(std::time::Duration::from_millis(1)));
     let err = timed
         .execute_query(
-            "UNWIND range(1, 20000000) AS x RETURN count(x) AS c",
+            "UNWIND range(1, 10000) AS x UNWIND range(1, 10000) AS y RETURN count(*) AS c",
             Map::new(),
         )
         .unwrap_err();

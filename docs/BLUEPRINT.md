@@ -1,9 +1,10 @@
-# Driver blueprint, version 0.2
+# Driver blueprint, version 0.3
 
-Version 0.2.0 speaks Bolt 5.0 to 5.4 with a Bolt 4.4 fallback, verifies TLS in
+Version 0.3.0 speaks Bolt 5.0 to 5.4 with a Bolt 4.4 fallback, verifies TLS in
 every language, recovers the connection after a database error, and gives
 database errors a classification applications can act on. The 0.1 API keeps
-working: everything below adds to it.
+working: everything below adds to it. Version 0.3 adds an optional object
+mapper, set out in `MAPPER.md`.
 
 ## Names and transport
 
@@ -34,11 +35,11 @@ driver then uses the 4.4 message and value forms.
   credentials. Read its SUCCESS, then send LOGON (`0x6A`) with one map:
   `scheme: basic`, `principal`, `credentials`. Read its SUCCESS. Do not pipeline
   the two.
-- `bolt_agent` is a map: `product` (`galactus-db-{language}-driver/0.2.0`),
+- `bolt_agent` is a map: `product` (`galactus-db-{language}-driver/0.3.0`),
   `language` (for example `Python/3.12.1`), `language_details` (runtime or
   compiler name, optional) and `platform` (OS and architecture, optional). Send
   it from 5.1 on (not in a 5.0 HELLO); 5.3 makes it required.
-- `user_agent` is `galactus-db-{language}-driver/0.2.0`.
+- `user_agent` is `galactus-db-{language}-driver/0.3.0`.
 
 A failed authentication is terminal: the server closes the connection. Raise
 the database error with the server's code and discard the connection.
@@ -47,7 +48,7 @@ credentials or query parameters. Reject unsupported URI schemes, all URI query
 options, and routing URIs.
 
 Do not send TELEMETRY, LOGOFF or ROUTE. Session re-authentication, routing and
-telemetry are not part of 0.2.
+telemetry are not part of 0.3.
 
 ### Running queries
 
@@ -63,7 +64,7 @@ Graph IDs are local database identities, not application keys.
 The terminal SUCCESS of an autocommit PULL and the SUCCESS of COMMIT may carry
 a `bookmark` string. Keep it in the result summary metadata and expose the most
 recent one as `last_bookmark` / `lastBookmark` / `LastBookmark` on the driver.
-The driver does not send bookmarks in 0.2.
+The driver does not send bookmarks in 0.3.
 
 Only one operation may use a connection at a time. Do not pipeline requests.
 
@@ -288,10 +289,10 @@ compare against a name rather than a string. Codes the server adds later still w
 | TransactionTerminated | `Galactus.ClientError.Transaction.Terminated` |
 | SnapshotTooOld | `Galactus.TransientError.Transaction.SnapshotTooOld` |
 | Forbidden | `Galactus.ClientError.Security.Forbidden` |
-| SyntaxError | `Neo.ClientError.Statement.SyntaxError` |
-| SemanticError | `Neo.ClientError.Statement.SemanticError` |
-| Unauthorized | `Neo.ClientError.Security.Unauthorized` |
-| DatabaseNotFound | `Neo.ClientError.Database.DatabaseNotFound` |
+| SyntaxError | `Galactus.ClientError.Statement.SyntaxError` |
+| SemanticError | `Galactus.ClientError.Statement.SemanticError` |
+| Unauthorized | `Galactus.ClientError.Security.Unauthorized` |
+| DatabaseNotFound | `Galactus.ClientError.Database.DatabaseNotFound` |
 
 Keep the constants inside a codes namespace (in Go, a `Code` prefix) so names such
 as `TypeError` do not clash with the language's own. A configuration error (for example a trusted
@@ -301,8 +302,8 @@ configuration error before connecting.
 ## Follow-on releases
 
 Keep this baseline stable while adding bounded connection pools, sessions that
-send bookmarks, fetch-size cursors, cancellation, async variants, retry with an
-idempotent transaction callback, and optional application-object mapping. Add
+send bookmarks, fetch-size cursors, cancellation, async variants, and retry with an
+idempotent transaction callback. Add
 these behind explicit features or dependencies, with shared behaviour tests. Do
 not advertise cluster routing, full driver compatibility, or production
 readiness based solely on speaking Bolt 5.

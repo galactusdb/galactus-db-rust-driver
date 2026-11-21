@@ -3,6 +3,7 @@
 //!
 //! The default build uses only the standard library. Verified `bolt+s://`
 //! needs the `tls` cargo feature (rustls with the platform verifier).
+pub mod mapper;
 #[cfg(feature = "tls")]
 mod tls;
 mod value;
@@ -39,10 +40,10 @@ pub mod codes {
     pub const TRANSACTION_TERMINATED: &str = "Galactus.ClientError.Transaction.Terminated";
     pub const SNAPSHOT_TOO_OLD: &str = "Galactus.TransientError.Transaction.SnapshotTooOld";
     pub const FORBIDDEN: &str = "Galactus.ClientError.Security.Forbidden";
-    pub const SYNTAX_ERROR: &str = "Neo.ClientError.Statement.SyntaxError";
-    pub const SEMANTIC_ERROR: &str = "Neo.ClientError.Statement.SemanticError";
-    pub const UNAUTHORIZED: &str = "Neo.ClientError.Security.Unauthorized";
-    pub const DATABASE_NOT_FOUND: &str = "Neo.ClientError.Database.DatabaseNotFound";
+    pub const SYNTAX_ERROR: &str = "Galactus.ClientError.Statement.SyntaxError";
+    pub const SEMANTIC_ERROR: &str = "Galactus.ClientError.Statement.SemanticError";
+    pub const UNAUTHORIZED: &str = "Galactus.ClientError.Security.Unauthorized";
+    pub const DATABASE_NOT_FOUND: &str = "Galactus.ClientError.Database.DatabaseNotFound";
 }
 
 #[derive(Debug)]
