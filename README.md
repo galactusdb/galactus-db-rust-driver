@@ -21,6 +21,7 @@ fits your application.
 - [Queries and results](#queries-and-results)
 - [Transactions](#transactions)
 - [Native type mapping](#native-type-mapping)
+- [Object mapping](#object-mapping)
 - [Spatial values](#spatial-values)
 - [Errors and connection lifecycle](#errors-and-connection-lifecycle)
 - [Testing](#testing)
@@ -250,6 +251,52 @@ Application models and UUIDs are converted explicitly to a supported value.
 See the [complete type mapping](docs/BLUEPRINT.md) for precision and range
 details. `encode_for(value, Protocol::Bolt5)` and `decode` expose the codec
 for wire-level inspection.
+
+## Object mapping
+
+The driver includes an optional mapper: declare a type as a node or a relationship, and it
+converts objects to and from the graph and writes the Cypher for the everyday operations.
+It adds no dependency. [docs/MAPPER.md](docs/MAPPER.md) is the full contract, shared by every
+Galactus driver.
+
+```rust
+use galactus::mapper::Mapper;
+
+galactus::node! {
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Person: "Person" {
+        key id: i64,
+        name: String,
+        email as "email_address": Option<String>,
+    }
+}
+galactus::node! {
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Company: "Company" { key name: String }
+}
+galactus::relationship! {
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct WorksAt: "WORKS_AT" { since: i64 }
+}
+
+let mut mapper = Mapper::new(&mut driver);
+let ann = mapper.save(&Person { id: 1, name: "Ann".into(), email: None })?;
+let acme = mapper.save(&Company { name: "Acme".into() })?;
+mapper.relate(&ann, &WorksAt { since: 2024 }, &acme)?;
+
+let found: Option<Person> = mapper.find(1)?;
+let people: Vec<Person> = mapper.find_all(&[("name", "Ann".into())], Some(10))?;
+let jobs = mapper.related::<WorksAt, Company, _>(&ann)?;      // Vec<(WorksAt, Company)>
+let people: Vec<Person> = mapper.query(
+    "MATCH (p:Person) WHERE p.name STARTS WITH $s RETURN p",
+    galactus::Map::from([("s".into(), "A".into())]))?;
+let deleted = mapper.delete::<Person>(1)?;
+```
+
+The macros write the struct, so there is no procedural macro and no dependency. A label or property name that is empty or holds a backtick does not compile.
+`query` maps what a statement of your own returns, so the mapper never stands between you
+and Cypher. Every operation is one statement and joins the driver's open transaction when
+there is one.
 
 ## Spatial values
 

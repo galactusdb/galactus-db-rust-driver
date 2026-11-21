@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Object mapper.** `galactus::node!` and `galactus::relationship!` declares a type as a node or a relationship; the mapper converts
+  objects to and from the graph and runs create, save, find, find-all, delete, relate,
+  related and query, each as one statement. It adds no dependency. `docs/MAPPER.md` is the
+  contract every Galactus driver follows.
+
 ## 0.2.0 (28/10/2026)
 
 ### Added
