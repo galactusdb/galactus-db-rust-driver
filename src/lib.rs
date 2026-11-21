@@ -3,6 +3,7 @@
 //!
 //! The default build uses only the standard library. Verified `bolt+s://`
 //! needs the `tls` cargo feature (rustls with the platform verifier).
+pub mod mapper;
 #[cfg(feature = "tls")]
 mod tls;
 mod value;
